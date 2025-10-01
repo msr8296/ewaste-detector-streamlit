@@ -1,15 +1,9 @@
-# E-Waste Detection System - Deployment Ready
-# Python 3.12 recommended for production
+streamlit==1.30.0
+tensorflow==2.13.0
+keras==2.13.1
+ultralytics==8.0.149
+opencv-python==4.8.0.74
+pillow==10.0.0
+numpy==1.26.0
+requests==2.32.0
 
-# Core Streamlit and UI
-streamlit>=1.28.0
-
-# Computer Vision and AI
-opencv-python>=4.8.0
-tensorflow>=2.15.0
-ultralytics>=8.0.200
-pillow>=10.0.0
-numpy>=1.24.0
-
-# Note: Use Python 3.12 for best production compatibility
-# Models load automatically on startup - no user interaction needed
