@@ -1,9 +1,9 @@
-streamlit==1.30.0
-tensorflow==2.13.0
-keras==2.13.1
-ultralytics==8.0.149
-opencv-python==4.8.0.74
-pillow==10.0.0
-numpy==1.26.0
-requests==2.32.0
+streamlit>=1.24.0
+opencv-python>=4.7.0
+numpy>=1.24.0
+Pillow>=10.0.0
+tensorflow>=2.14.0
+ultralytics>=8.0.134
+requests>=2.31.0
+
 
