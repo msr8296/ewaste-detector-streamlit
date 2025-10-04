@@ -90,7 +90,7 @@ def detect_and_classify(frame, yolo_model, classification_model, class_names):
         boxes = result.boxes
         if boxes is not None:
             for box, cls_id in zip(boxes.xyxy, boxes.cls):
-                # Skip person class
+                # Skip "person" class
                 if yolo_model.names[int(cls_id)] == "person":
                     continue
                 x1, y1, x2, y2 = map(int, box.tolist())
@@ -109,12 +109,12 @@ def detect_and_classify(frame, yolo_model, classification_model, class_names):
 def main():
     st.set_page_config(page_title="🔋 E-Waste Detector", layout="wide")
     st.title("🔋 E-Waste Detection System")
-    st.write("*Upload an image or use your webcam for continuous e-waste detection."
-             " **(For better prediction, I suggest you upload images.)***")
+    st.write("*Upload an image or use your webcam for e-waste detection.* "
+             "**(For best accuracy, try uploading clear images.)**")
 
     yolo_model, classification_model, class_names = load_models_and_classes()
 
-    # Sidebar info
+    # Sidebar
     st.sidebar.header("System Status")
     st.sidebar.success("Models: Ready")
     st.sidebar.success(f"Classes: {len(class_names)} loaded")
@@ -129,11 +129,12 @@ def main():
     st.sidebar.code(CLASSIFICATION_MODEL_HF, language="text")
     st.sidebar.code(CLASS_NAMES_HF, language="text")
 
-    tab1, tab2 = st.tabs(["Upload Image", "📹 Webcam Detection"])
+    # Tabs
+    tab1, tab2 = st.tabs(["Upload Image", "📸 Browser Webcam Detection"])
 
-    # ===================== Upload Image =====================
+    # ---------- Upload Image ----------
     with tab1:
-        uploaded_file = st.file_uploader("Choose an image file", type=['jpg', 'jpeg', 'png', 'bmp'])
+        uploaded_file = st.file_uploader("Choose an image", type=["jpg", "jpeg", "png", "bmp"])
         if uploaded_file:
             image = Image.open(uploaded_file)
             img_array = np.array(image)
@@ -151,78 +152,40 @@ def main():
                     for i, det in enumerate(detections, 1):
                         status = "♻ E-WASTE" if 'e_waste' in det['class'].lower() else "🗑 NON-E-WASTE"
                         color = "green" if 'e_waste' in det['class'].lower() else "orange"
-                        st.markdown(f"*Object {i}:* :{color}[{status}] - {det['class']} ({det['confidence']:.2f})")
+                        st.markdown(f"*Object {i}:* :{color}[{status}] - "
+                                    f"{det['class']} ({det['confidence']:.2f})")
                 else:
-                    st.info("No objects detected in the image")
+                    st.info("No objects detected in this image.")
 
-    # ===================== Webcam Detection =====================
+    # ---------- Browser Webcam (st.camera_input) ----------
     with tab2:
-        st.subheader("Continuous Webcam Detection")
-        col1, col2 = st.columns([2, 1])
-        video_placeholder = col1.empty()
-        live_results = col2.empty()
+        st.subheader("📹 Browser-Based Webcam Detection")
+        st.write("Use your browser's camera below to capture an image.")
 
-        if 'cap' not in st.session_state:
-            st.session_state.cap = None
-        if 'current_detections' not in st.session_state:
-            st.session_state.current_detections = []
-        if 'last_frame' not in st.session_state:
-            st.session_state.last_frame = None
+        img_data = st.camera_input("Click below to capture a photo")
 
-        start = st.button("🟢 Start Camera")
-        stop = st.button("🔴 Stop Camera")
-        capture = st.button("📸 Capture Frame")
+        if img_data is not None:
+            image = Image.open(img_data)
+            img_array = np.array(image)
+            annotated, detections = detect_and_classify(cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR),
+                                                        yolo_model, classification_model, class_names)
 
-        # Start camera
-        if start:
-            st.session_state.cap = cv2.VideoCapture(0)
-            if not st.session_state.cap.isOpened():
-                st.error("❌ Unable to access the webcam.")
-                st.session_state.cap = None
-
-        # Stop camera
-        if stop and st.session_state.cap:
-            st.session_state.cap.release()
-            st.session_state.cap = None
-            video_placeholder.empty()
-            live_results.empty()
-            st.session_state.current_detections = []
-            st.session_state.last_frame = None
-
-        # Continuous detection loop
-        if st.session_state.cap:
-            ret, frame = st.session_state.cap.read()
-            if not ret or frame is None:
-                st.warning("⚠️ Failed to read from webcam. Please check your camera.")
+            st.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB), use_column_width=True)
+            if detections:
+                st.subheader("Detected Objects:")
+                for i, det in enumerate(detections, 1):
+                    status = "♻ E-WASTE" if 'e_waste' in det['class'].lower() else "🗑 NON-E-WASTE"
+                    color = "green" if 'e_waste' in det['class'].lower() else "orange"
+                    st.markdown(f"*Object {i}:* :{color}[{status}] - "
+                                f"{det['class']} ({det['confidence']:.2f})")
             else:
-                annotated, detections = detect_and_classify(frame, yolo_model, classification_model, class_names)
-                video_placeholder.image(cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB), use_column_width=True)
-                st.session_state.current_detections = detections
-                st.session_state.last_frame = frame
-
-        # Capture frame safely
-        if capture:
-            if st.session_state.last_frame is not None:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                save_path = f"captured_{timestamp}.jpg"
-                cv2.imwrite(save_path, st.session_state.last_frame)
-                st.success(f"✅ Frame captured and saved as `{save_path}`")
-            else:
-                st.warning("⚠️ No frame available to capture. Start the webcam first.")
-
-        # Live detection results
-        if st.session_state.current_detections:
-            live_results.subheader("Live Detection Results")
-            for i, det in enumerate(st.session_state.current_detections, 1):
-                status = "♻ E-WASTE" if 'e_waste' in det['class'].lower() else "🗑 NON-E-WASTE"
-                color = "green" if 'e_waste' in det['class'].lower() else "orange"
-                live_results.markdown(f"*Object {i}:* :{color}[{status}] - {det['class']} ({det['confidence']:.2f})")
+                st.info("No objects detected in this frame.")
         else:
-            live_results.info("No objects currently detected.")
+            st.info("📸 Click 'Take Photo' above to capture an image.")
 
     st.markdown("---")
     st.markdown("""<div style="text-align:center;color:#666;">
-    🔋 E-Waste Detection System | Production Ready | Hugging Face Models
+    🔋 E-Waste Detection System | Powered by Hugging Face Models
     </div>""", unsafe_allow_html=True)
 
 
